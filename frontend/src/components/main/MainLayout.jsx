@@ -3,18 +3,17 @@ import { Outlet } from 'react-router-dom'
 import BottomTabBar from './BottomTabBar'
 
 /**
- * MainLayout — wraps main tab pages.
- * topBarProps=false means each page renders its own TopBar (which we do).
+ * MainLayout — wraps the four main tab pages.
+ * Structure: flex-col, full height, no overflow leakage.
+ *   - <main> is flex-1 + overflow-y-auto: each page scrolls inside here
+ *   - <BottomTabBar> is flex-shrink-0: always pinned at the bottom
  */
 const MainLayout = () => {
   return (
-    <div className="flex flex-col h-screen overflow-hidden">
-      {/* MIDDLE — each page renders its own TopBar + content */}
-      <main className="flex-1 overflow-y-auto">
+    <div className="flex flex-col h-screen w-full overflow-hidden">
+      <main className="flex-1 overflow-y-auto overflow-x-hidden">
         <Outlet />
       </main>
-
-      {/* BOTTOM — fixed tab bar */}
       <BottomTabBar />
     </div>
   )

@@ -58,7 +58,6 @@ const SearchPage = () => {
   const handleResultClick = (user) => {
     saveRecent(user.name)
     setRecent(getRecent())
-    // Navigate to the full profile view
     navigate(`/profile/view/${user.id || user._id}`, {
       state: {
         profile: {
@@ -87,9 +86,10 @@ const SearchPage = () => {
   const showResults = searched && !loading
 
   return (
-    <div className="flex flex-col min-h-screen bg-white">
+    /* h-screen + flex-col so the page fills exactly the phone height with no overflow */
+    <div className="flex flex-col h-screen w-full bg-white overflow-hidden">
       {/* Search bar header */}
-      <div className="flex items-center gap-3 px-4 pt-12 pb-3 border-b border-gray-100">
+      <div className="flex items-center gap-3 px-4 pt-12 pb-3 border-b border-gray-100 flex-shrink-0">
         <button
           onClick={() => navigate(-1)}
           className="w-9 h-9 flex items-center justify-center hover:bg-gray-100 rounded-full transition-colors flex-shrink-0"
@@ -97,7 +97,7 @@ const SearchPage = () => {
           <IoArrowBack className="text-xl text-gray-700" />
         </button>
 
-        <div className="flex-1 flex items-center gap-2 bg-gray-100 rounded-2xl px-4 py-2.5">
+        <div className="flex-1 flex items-center gap-2 bg-gray-100 rounded-2xl px-4 py-2.5 min-w-0">
           <IoSearchOutline className="text-gray-400 text-lg flex-shrink-0" />
           <input
             ref={inputRef}
@@ -105,17 +105,18 @@ const SearchPage = () => {
             value={query}
             onChange={(e) => setQuery(e.target.value)}
             placeholder="Search"
-            className="flex-1 bg-transparent text-base text-gray-800 placeholder-gray-400 focus:outline-none"
+            className="flex-1 min-w-0 bg-transparent text-sm text-gray-800 placeholder-gray-400 focus:outline-none"
           />
           {query && (
-            <button onClick={() => { setQuery(''); setResults([]); setSearched(false) }}>
+            <button onClick={() => { setQuery(''); setResults([]); setSearched(false) }} className="flex-shrink-0">
               <IoCloseCircle className="text-gray-400 text-lg" />
             </button>
           )}
         </div>
       </div>
 
-      <div className="flex-1 overflow-y-auto">
+      {/* Scrollable body */}
+      <div className="flex-1 overflow-y-auto overflow-x-hidden">
         {/* Recent Searches */}
         {showRecent && (
           <div className="px-4 pt-5">
@@ -135,7 +136,7 @@ const SearchPage = () => {
                 <span className="text-sm text-gray-500">{name}</span>
                 <button
                   onClick={(e) => handleRemoveRecent(e, name)}
-                  className="text-gray-400 hover:text-gray-600"
+                  className="text-gray-400 hover:text-gray-600 flex-shrink-0"
                 >
                   <svg width="14" height="14" fill="none" viewBox="0 0 14 14">
                     <path d="M1 1l12 12M13 1L1 13" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"/>
@@ -155,7 +156,7 @@ const SearchPage = () => {
 
         {/* Results grid */}
         {showResults && results.length > 0 && (
-          <div className="px-4 pt-4">
+          <div className="px-4 pt-4 pb-4">
             <div className="grid grid-cols-2 gap-3">
               {results.map((user) => (
                 <UserResultCard

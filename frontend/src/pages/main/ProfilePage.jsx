@@ -99,7 +99,7 @@ const ProfilePage = () => {
   const photos = user?.photos || []
 
   return (
-    <div className="flex flex-col min-h-screen bg-white">
+    <div className="flex flex-col h-full w-full bg-white">
       {/* Common TopBar */}
       <TopBar
         title="Profile"

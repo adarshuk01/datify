@@ -140,7 +140,6 @@ const ChatRoomPage = () => {
       if (!activeConversation) {
         setLoadingConv(true)
         try {
-          // Try fetching conversations list to find this one
           const res = await api.get('/chat/conversations')
           const convs = res.data?.data?.conversations || []
           const found = convs.find(
@@ -181,10 +180,6 @@ const ChatRoomPage = () => {
   }, [messages])
 
   // ── Send message ─────────────────────────────────────────────────────────
-  // sendSocketMessage now always POSTs to REST. The server saves to DB and
-  // publishes to Ably. The Ably subscription in joinConversation delivers the
-  // message back to this client, which appends it via appendMessage.
-  // We also do an optimistic local append so the UI feels instant.
   const handleSend = useCallback(async () => {
     const trimmed = text.trim()
     if (!trimmed || !conversationId) return
@@ -192,7 +187,6 @@ const ChatRoomPage = () => {
     setText('')
     emitTypingStop(conversationId)
 
-    // Optimistic bubble — use a temp id; Ably echo will replace with real msg
     const optimistic = {
       _id: `tmp-${Date.now()}`,
       conversationId,
@@ -204,7 +198,6 @@ const ChatRoomPage = () => {
     }
     appendMessage(optimistic)
 
-    // Fire REST — server persists + publishes Ably event
     await sendSocketMessage(conversationId, trimmed)
   }, [text, conversationId, myId, appendMessage])
 
@@ -236,7 +229,6 @@ const ChatRoomPage = () => {
       const next = messages[i + 1]
       const isMine = String(msg.sender) === myId
 
-      // Date separator
       if (!prev || !isSameDay(prev.createdAt, msg.createdAt)) {
         items.push(
           <div key={`sep-${msg._id}`} className="flex justify-center my-4">
@@ -247,7 +239,6 @@ const ChatRoomPage = () => {
         )
       }
 
-      // Show avatar only on last message in a consecutive group from other person
       const isLastInGroup =
         !next || String(next.sender) !== String(msg.sender) || !isSameDay(next.createdAt, msg.createdAt)
       const showAvatar = !isMine && isLastInGroup
@@ -270,14 +261,15 @@ const ChatRoomPage = () => {
 
   if (loadingConv && !participant) {
     return (
-      <div className="flex flex-col min-h-screen bg-white items-center justify-center">
+      <div className="flex flex-col h-screen w-full bg-white items-center justify-center">
         <Spinner size="md" color="purple" />
       </div>
     )
   }
 
   return (
-    <div className="flex flex-col h-screen bg-white">
+    /* h-screen + flex-col: header is fixed height, messages flex-1 scroll, input fixed height */
+    <div className="flex flex-col h-screen w-full bg-white overflow-hidden">
       {/* Header */}
       <div className="flex items-center justify-between px-4 pt-12 pb-3 bg-white border-b border-gray-100 flex-shrink-0">
         <button
@@ -301,8 +293,8 @@ const ChatRoomPage = () => {
         <div className="w-9 h-9" />
       </div>
 
-      {/* Messages area */}
-      <div className="flex-1 overflow-y-auto px-4 py-4 space-y-2 bg-white">
+      {/* Messages area — flex-1 takes all remaining height, scrolls internally */}
+      <div className="flex-1 overflow-y-auto overflow-x-hidden px-4 py-4 space-y-2 bg-white">
         {isLoadingMessages ? (
           <div className="flex justify-center items-center h-32">
             <Spinner size="sm" color="purple" />
@@ -321,15 +313,15 @@ const ChatRoomPage = () => {
         <div ref={messagesEndRef} />
       </div>
 
-      {/* Input bar */}
-      <div className="flex-shrink-0 bg-white border-t border-gray-100 px-4 py-3 pb-safe flex items-center gap-3">
+      {/* Input bar — always pinned to bottom, never scrolls away */}
+      <div className="flex-shrink-0 bg-white border-t border-gray-100 px-4 py-3 flex items-center gap-3">
         {/* Plus button */}
-        <button className="w-8 h-8 flex items-center justify-center text-gray-500 hover:text-gray-700 transition-colors">
+        <button className="w-8 h-8 flex-shrink-0 flex items-center justify-center text-gray-500 hover:text-gray-700 transition-colors">
           <IoAdd className="text-2xl" />
         </button>
 
         {/* Text input */}
-        <div className="flex-1 bg-gray-50 rounded-full flex items-center px-4 py-2.5 min-h-[44px]">
+        <div className="flex-1 min-w-0 bg-gray-50 rounded-full flex items-center px-4 py-2.5 min-h-[44px]">
           <input
             ref={inputRef}
             type="text"
@@ -337,11 +329,10 @@ const ChatRoomPage = () => {
             onChange={handleTextChange}
             onKeyDown={handleKeyDown}
             placeholder="Send message ..."
-            className="flex-1 bg-transparent text-base text-gray-800 placeholder-gray-400 outline-none"
+            className="flex-1 min-w-0 bg-transparent text-sm text-gray-800 placeholder-gray-400 outline-none"
           />
-          {/* Mic icon when empty */}
           {!text && (
-            <button className="text-gray-400 hover:text-gray-600 transition-colors ml-2">
+            <button className="text-gray-400 hover:text-gray-600 transition-colors ml-2 flex-shrink-0">
               <IoMicOutline className="text-xl" />
             </button>
           )}
@@ -351,7 +342,7 @@ const ChatRoomPage = () => {
         <button
           onClick={handleSend}
           disabled={!text.trim()}
-          className={`w-11 h-11 rounded-full flex items-center justify-center shadow-md transition-all duration-200 ${
+          className={`w-11 h-11 flex-shrink-0 rounded-full flex items-center justify-center shadow-md transition-all duration-200 ${
             text.trim()
               ? 'bg-primary-600 text-white active:scale-90 hover:bg-primary-700'
               : 'bg-primary-200 text-white cursor-not-allowed'

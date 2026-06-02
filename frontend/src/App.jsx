@@ -54,8 +54,15 @@ function App() {
 
   return (
     <BrowserRouter>
-      <div className="min-h-screen bg-gray-100 flex items-center justify-center">
-        <div className="w-full max-w-sm h-screen bg-white shadow-2xl relative overflow-hidden flex flex-col">
+      {/*
+        Phone-frame wrapper:
+        - On desktop: centers a 390px column with a shadow (looks like a phone)
+        - On real mobile: w-full fills the screen, max-w-sm has no effect
+        - overflow-x-hidden prevents any horizontal bleed from children
+        - overflow-y is handled per-page (each page owns its scroll)
+      */}
+      <div className="min-h-screen bg-gray-100 flex items-start justify-center">
+        <div className="w-full max-w-sm min-h-screen bg-white shadow-2xl relative flex flex-col overflow-x-hidden">
           <Routes>
             <Route path="/"               element={<SplashScreen />} />
             <Route path="/onboarding"     element={<OnboardingPage />} />

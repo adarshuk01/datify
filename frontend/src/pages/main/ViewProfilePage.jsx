@@ -276,7 +276,7 @@ const ViewProfilePage = () => {
   ].filter(Boolean)
 
   return (
-    <div ref={scrollRef} className="relative h-screen overflow-y-auto bg-gray-50"
+    <div ref={scrollRef} className="relative h-screen w-full overflow-y-auto bg-gray-50"
       onScroll={handleScroll} style={{ WebkitOverflowScrolling: 'touch' }}
     >
 

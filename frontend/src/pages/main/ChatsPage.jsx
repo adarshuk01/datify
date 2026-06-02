@@ -155,7 +155,7 @@ const ChatsPage = () => {
   const showNewMatchesRow = newMatches.length > 0
 
   return (
-    <div className="flex flex-col min-h-screen bg-white">
+    <div className="flex flex-col h-full w-full bg-white">
       <TopBar title="Chats" showSearch={true} onSearchClick={() => navigate('/search')} />
 
       {/* Loading */}

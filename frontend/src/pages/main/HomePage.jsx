@@ -119,7 +119,7 @@ const HomePage = () => {
   const isLast  = currentIndex >= profiles.length - 1
 
   return (
-    <div className="flex flex-col min-h-screen bg-white">
+    <div className="flex flex-col h-full w-full bg-white">
       <TopBar
         title="Datify"
         showSearch={true}

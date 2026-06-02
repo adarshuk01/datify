@@ -270,7 +270,7 @@ const EditProfilePage = () => {
   const slots = Array.from({ length: 6 })
 
   return (
-    <div className="flex flex-col min-h-screen bg-white">
+    <div className="flex flex-col h-screen w-full bg-white overflow-hidden">
       {/* Header */}
       <div className="flex items-center justify-between px-5 pt-12 pb-3 border-b border-gray-100">
         <button
