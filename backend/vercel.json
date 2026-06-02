@@ -6,12 +6,6 @@
       "regions": ["bom1"]
     }
   },
-  "builds": [
-    {
-      "src": "src/index.js",
-      "use": "@vercel/node"
-    }
-  ],
   "routes": [
     {
       "src": "/(.*)",
