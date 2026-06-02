@@ -66,7 +66,7 @@ const InterestsStep = ({ onNext, onBack }) => {
           value={search}
           onChange={(e) => setSearch(e.target.value)}
           placeholder="Search interest"
-          className="w-full pl-11 pr-4 py-3.5 bg-gray-100 rounded-2xl text-sm text-gray-700
+          className="w-full pl-11 pr-4 py-3.5 bg-gray-100 rounded-2xl text-base text-gray-700
                      placeholder-gray-400 border-2 border-transparent focus:border-primary-300
                      focus:bg-white focus:outline-none transition-all duration-200"
         />

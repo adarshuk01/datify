@@ -41,7 +41,7 @@ const Input = ({
           required={required}
           autoComplete={autoComplete}
           className={`
-            w-full py-4 bg-gray-50 rounded-xl text-gray-800 text-sm
+            w-full py-4 bg-gray-50 rounded-xl text-gray-800 text-base
             border-2 transition-all duration-200
             placeholder:text-gray-400
             focus:outline-none focus:bg-white focus:border-primary-400

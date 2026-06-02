@@ -67,7 +67,7 @@ const TextInput = ({ value, onChange, placeholder, maxLength, type = 'text' }) =
     onChange={(e) => onChange(e.target.value)}
     placeholder={placeholder}
     maxLength={maxLength}
-    className="w-full bg-gray-50 border border-gray-200 rounded-2xl px-4 py-3.5 text-sm
+    className="w-full bg-gray-50 border border-gray-200 rounded-2xl px-4 py-3.5 text-base
                text-gray-800 placeholder-gray-400 focus:outline-none focus:border-primary-400
                focus:bg-white transition-all"
   />
@@ -78,7 +78,7 @@ const SelectInput = ({ value, onChange, options, placeholder }) => (
     <select
       value={value}
       onChange={(e) => onChange(e.target.value)}
-      className="w-full bg-gray-50 border border-gray-200 rounded-2xl px-4 py-3.5 text-sm
+      className="w-full bg-gray-50 border border-gray-200 rounded-2xl px-4 py-3.5 text-base
                  text-gray-800 focus:outline-none focus:border-primary-400 focus:bg-white
                  transition-all appearance-none pr-10"
     >
@@ -413,7 +413,7 @@ const EditProfilePage = () => {
               placeholder="Tell others about yourself..."
               maxLength={500}
               rows={4}
-              className="w-full bg-gray-50 border border-gray-200 rounded-2xl px-4 py-3.5 text-sm
+              className="w-full bg-gray-50 border border-gray-200 rounded-2xl px-4 py-3.5 text-base
                          text-gray-800 placeholder-gray-400 focus:outline-none focus:border-primary-400
                          focus:bg-white transition-all resize-none"
             />
@@ -507,7 +507,7 @@ const EditProfilePage = () => {
                   value={socials[key]}
                   onChange={(e) => setSocials({ ...socials, [key]: e.target.value })}
                   placeholder={placeholder}
-                  className="flex-1 bg-transparent text-sm text-gray-600 placeholder-gray-400 focus:outline-none"
+                  className="flex-1 bg-transparent text-base text-gray-600 placeholder-gray-400 focus:outline-none"
                 />
               </div>
             ))}

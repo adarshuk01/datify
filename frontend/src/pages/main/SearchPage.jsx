@@ -105,7 +105,7 @@ const SearchPage = () => {
             value={query}
             onChange={(e) => setQuery(e.target.value)}
             placeholder="Search"
-            className="flex-1 bg-transparent text-sm text-gray-800 placeholder-gray-400 focus:outline-none"
+            className="flex-1 bg-transparent text-base text-gray-800 placeholder-gray-400 focus:outline-none"
           />
           {query && (
             <button onClick={() => { setQuery(''); setResults([]); setSearched(false) }}>

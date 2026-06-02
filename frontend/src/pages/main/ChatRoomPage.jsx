@@ -10,7 +10,6 @@ import {
   sendSocketMessage,
   emitTypingStart,
   emitTypingStop,
-  getSocket,
 } from '../../services/socketService'
 import api from '../../services/api'
 
@@ -164,7 +163,7 @@ const ChatRoomPage = () => {
     }
   }, [activeConversation])
 
-  // ── Join socket room & fetch messages ────────────────────────────────────
+  // ── Join Ably conversation channel & fetch messages ──────────────────────
   useEffect(() => {
     if (!conversationId) return
     joinConversation(conversationId)
@@ -176,28 +175,16 @@ const ChatRoomPage = () => {
     }
   }, [conversationId, fetchMessages, markAsRead])
 
-  // ── Listen for new messages via socket ───────────────────────────────────
-  useEffect(() => {
-    const socket = getSocket()
-    if (!socket) return
-
-    const handleNewMsg = (message) => {
-      if (String(message.conversationId) === String(conversationId)) {
-        appendMessage(message)
-        markAsRead(conversationId)
-      }
-    }
-
-    socket.on('new:message', handleNewMsg)
-    return () => socket.off('new:message', handleNewMsg)
-  }, [conversationId, appendMessage, markAsRead])
-
   // ── Auto scroll to bottom ────────────────────────────────────────────────
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
   }, [messages])
 
   // ── Send message ─────────────────────────────────────────────────────────
+  // sendSocketMessage now always POSTs to REST. The server saves to DB and
+  // publishes to Ably. The Ably subscription in joinConversation delivers the
+  // message back to this client, which appends it via appendMessage.
+  // We also do an optimistic local append so the UI feels instant.
   const handleSend = useCallback(async () => {
     const trimmed = text.trim()
     if (!trimmed || !conversationId) return
@@ -205,20 +192,21 @@ const ChatRoomPage = () => {
     setText('')
     emitTypingStop(conversationId)
 
-    const socketSent = sendSocketMessage(conversationId, trimmed)
-
-    // Optimistic update (socket will echo back)
-    if (!socketSent) {
-      // Fallback: REST
-      try {
-        const res = await api.post(`/chat/conversations/${conversationId}/messages`, { text: trimmed })
-        const msg = res.data?.data?.message
-        if (msg) appendMessage(msg)
-      } catch (err) {
-        console.error('Send message REST error:', err)
-      }
+    // Optimistic bubble — use a temp id; Ably echo will replace with real msg
+    const optimistic = {
+      _id: `tmp-${Date.now()}`,
+      conversationId,
+      sender: myId,
+      text: trimmed,
+      createdAt: new Date().toISOString(),
+      readBy: [myId],
+      _optimistic: true,
     }
-  }, [text, conversationId, appendMessage])
+    appendMessage(optimistic)
+
+    // Fire REST — server persists + publishes Ably event
+    await sendSocketMessage(conversationId, trimmed)
+  }, [text, conversationId, myId, appendMessage])
 
   const handleKeyDown = (e) => {
     if (e.key === 'Enter' && !e.shiftKey) {
@@ -349,7 +337,7 @@ const ChatRoomPage = () => {
             onChange={handleTextChange}
             onKeyDown={handleKeyDown}
             placeholder="Send message ..."
-            className="flex-1 bg-transparent text-sm text-gray-800 placeholder-gray-400 outline-none"
+            className="flex-1 bg-transparent text-base text-gray-800 placeholder-gray-400 outline-none"
           />
           {/* Mic icon when empty */}
           {!text && (

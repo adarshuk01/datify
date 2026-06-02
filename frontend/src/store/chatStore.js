@@ -1,6 +1,5 @@
 import { create } from 'zustand'
 import api from '../services/api'
-import { getSocket } from '../services/socketService'
 
 export const useChatStore = create((set, get) => ({
   conversations: [],       // mutual matches — always populated by backend
@@ -51,9 +50,30 @@ export const useChatStore = create((set, get) => ({
     }
   },
 
-  // ── Append an incoming socket message ───────────────────────────────────
+  // ── Append an incoming Ably message ─────────────────────────────────────
+  // If an optimistic message with the same text+sender exists, replace it
+  // with the real persisted message (which has a proper _id and createdAt).
   appendMessage: (message) => {
-    set((state) => ({ messages: [...state.messages, message] }))
+    set((state) => {
+      if (message._optimistic) {
+        // Just append optimistic, no dedup needed
+        return { messages: [...state.messages, message] }
+      }
+      // Replace matching optimistic bubble if present
+      const hasOptimistic = state.messages.some(
+        (m) => m._optimistic && m.sender === message.sender && m.text === message.text
+      )
+      if (hasOptimistic) {
+        return {
+          messages: state.messages.map((m) =>
+            m._optimistic && m.sender === message.sender && m.text === message.text
+              ? message
+              : m
+          ),
+        }
+      }
+      return { messages: [...state.messages, message] }
+    })
   },
 
   // ── Update a conversation in the list (from socket or after send) ───────
@@ -94,8 +114,8 @@ export const useChatStore = create((set, get) => ({
           totalUnread: newList.reduce((sum, c) => sum + (c.unreadCount || 0), 0),
         }
       })
-      const socket = getSocket()
-      if (socket) socket.emit('mark:read', { conversationId })
+      // The server's PUT handler publishes 'messages:read' to Ably automatically.
+      // No need to emit via socket here.
     } catch (err) {
       console.error('Mark as read error:', err)
     }

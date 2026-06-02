@@ -41,15 +41,16 @@ const MainRoute = ({ children }) => {
 }
 
 function App() {
-  const { isAuthenticated, token } = useAuthStore()
+  const { isAuthenticated, token, user } = useAuthStore()
 
   useEffect(() => {
     if (isAuthenticated && token) {
-      connectSocket(token)
+      const uid = String(user?.id || user?._id || '')
+      connectSocket(token, uid)
     } else {
       disconnectSocket()
     }
-  }, [isAuthenticated, token])
+  }, [isAuthenticated, token, user])
 
   return (
     <BrowserRouter>

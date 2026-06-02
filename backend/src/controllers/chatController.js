@@ -1,6 +1,7 @@
 import Conversation from '../models/Conversation.js'
 import Message from '../models/Message.js'
 import User from '../models/User.js'
+import ably from '../config/ably.js'
 import { successResponse, errorResponse } from '../utils/response.js'
 
 // ─── Helper: check mutual match ────────────────────────────────────────────
@@ -52,22 +53,27 @@ export const formatConversation = (conv, myId) => {
   }
 }
 
+// ─── Ably publish helper ────────────────────────────────────────────────────
+// Fire-and-forget; never let a publish failure break the HTTP response.
+const ablyPublish = async (channelName, eventName, payload) => {
+  try {
+    await ably.channels.get(channelName).publish(eventName, payload)
+  } catch (err) {
+    console.error(`[Ably] publish failed → ${channelName}:${eventName}`, err.message)
+  }
+}
+
 // ─── List all conversations for current user (only mutual matches) ─────────
-// This is the main endpoint for ChatsPage.
-// It also auto-creates conversations for any mutual match that doesn't have one yet,
-// so every new mutual like instantly appears in the chat list.
 export const getConversations = async (req, res) => {
   try {
     const myId = req.user._id.toString()
 
-    // 1. Load current user with liked/superLiked lists populated
     const currentUser = await User.findById(myId)
       .populate('likedUsers',      'name age photos lastActive likedUsers superLikedUsers')
       .populate('superLikedUsers', 'name age photos lastActive likedUsers superLikedUsers')
 
     if (!currentUser) return errorResponse(res, 'User not found', 404)
 
-    // 2. Collect all mutual matches (both parties liked each other)
     const mutualMatchIds = new Set()
     const mutualMatchUsers = {}
 
@@ -92,7 +98,6 @@ export const getConversations = async (req, res) => {
       }
     }
 
-    // 3. Load existing conversations with mutual matches
     const existingConvs = await Conversation.find({
       participants: { $all: [myId] },
     })
@@ -105,7 +110,6 @@ export const getConversations = async (req, res) => {
       if (other) existingByOtherUser[String(other._id)] = conv
     }
 
-    // 4. For every mutual match that has NO conversation yet — create one silently
     const toCreate = [...mutualMatchIds].filter((uid) => !existingByOtherUser[uid])
     if (toCreate.length > 0) {
       await Promise.all(
@@ -116,7 +120,6 @@ export const getConversations = async (req, res) => {
           })
         )
       )
-      // Reload conversations after creation
       const freshConvs = await Conversation.find({
         participants: { $all: [myId] },
       })
@@ -129,12 +132,10 @@ export const getConversations = async (req, res) => {
       }
     }
 
-    // 5. Return only conversations with mutual matches, sorted by last activity
     const result = [...mutualMatchIds]
       .map((uid) => existingByOtherUser[uid])
       .filter(Boolean)
       .sort((a, b) => {
-        // Conversations with messages come first; then by createdAt
         const ta = a.lastMessageAt ? new Date(a.lastMessageAt).getTime() : new Date(a.createdAt).getTime()
         const tb = b.lastMessageAt ? new Date(b.lastMessageAt).getTime() : new Date(b.createdAt).getTime()
         return tb - ta
@@ -148,7 +149,7 @@ export const getConversations = async (req, res) => {
   }
 }
 
-// ─── Get or create conversation (kept for direct access) ──────────────────
+// ─── Get or create conversation ────────────────────────────────────────────
 export const getOrCreateConversation = async (req, res) => {
   try {
     const { matchId } = req.params
@@ -184,7 +185,7 @@ export const getOrCreateConversation = async (req, res) => {
   }
 }
 
-// ─── Get messages in a conversation (paginated) ───────────────────────────
+// ─── Get messages (paginated) ──────────────────────────────────────────────
 export const getMessages = async (req, res) => {
   try {
     const { conversationId } = req.params
@@ -208,7 +209,7 @@ export const getMessages = async (req, res) => {
       Message.countDocuments({ conversationId }),
     ])
 
-    // Mark unread as read
+    // Mark as read on fetch
     await Message.updateMany(
       { conversationId, readBy: { $ne: myId } },
       { $addToSet: { readBy: myId } }
@@ -229,7 +230,10 @@ export const getMessages = async (req, res) => {
   }
 }
 
-// ─── Send a message (REST fallback) ──────────────────────────────────────
+// ─── Send a message + publish to Ably ─────────────────────────────────────
+// This is the single source of truth for sending. The frontend POSTs here;
+// the server saves to MongoDB and then publishes to Ably so all subscribers
+// (including the sender on other devices) receive the event via Ably Realtime.
 export const sendMessage = async (req, res) => {
   try {
     const { conversationId } = req.params
@@ -244,6 +248,7 @@ export const sendMessage = async (req, res) => {
       return errorResponse(res, 'Access denied', 403)
     }
 
+    // 1. Persist the message
     const message = await Message.create({
       conversationId,
       sender: myId,
@@ -251,25 +256,60 @@ export const sendMessage = async (req, res) => {
       readBy: [myId],
     })
 
-    const otherParticipants = conversation.participants.map(String).filter((id) => id !== myId)
+    // 2. Update conversation metadata
+    const otherIds = conversation.participants.map(String).filter((id) => id !== myId)
     const unreadUpdates = {}
-    for (const pid of otherParticipants) {
+    for (const pid of otherIds) {
       const current = conversation.unreadCounts?.get(pid) || 0
       unreadUpdates[`unreadCounts.${pid}`] = current + 1
     }
 
-    await Conversation.findByIdAndUpdate(conversationId, {
-      $set: { lastMessage: message._id, lastMessageAt: message.createdAt, ...unreadUpdates },
-    })
+    const updatedConv = await Conversation.findByIdAndUpdate(
+      conversationId,
+      {
+        $set: {
+          lastMessage: message._id,
+          lastMessageAt: message.createdAt,
+          ...unreadUpdates,
+        },
+      },
+      { new: true }
+    )
+      .populate('lastMessage')
+      .populate('participants', 'name photos lastActive')
 
-    return successResponse(res, { message }, 'Message sent', 201)
+    // 3. Build the message payload
+    const msgPayload = {
+      _id: message._id,
+      conversationId,
+      sender: myId,
+      text: message.text,
+      createdAt: message.createdAt,
+      readBy: [myId],
+    }
+
+    // 4. Publish to Ably in parallel (non-blocking on failure)
+    //    conv:<id>  → real-time message delivery in the chat room
+    //    user:<id>  → conversation list updates for each participant
+    const publishJobs = [
+      ablyPublish(`conv:${conversationId}`, 'new:message', msgPayload),
+      ...conversation.participants.map((p) => {
+        const pid = String(p._id || p)
+        return ablyPublish(`user:${pid}`, 'conversation:updated', {
+          conversation: formatConversation(updatedConv, pid),
+        })
+      }),
+    ]
+    await Promise.allSettled(publishJobs)
+
+    return successResponse(res, { message: msgPayload }, 'Message sent', 201)
   } catch (error) {
     console.error('Send message error:', error)
     return errorResponse(res, 'Failed to send message')
   }
 }
 
-// ─── Mark as read ──────────────────────────────────────────────────────────
+// ─── Mark as read + publish to Ably ───────────────────────────────────────
 export const markAsRead = async (req, res) => {
   try {
     const { conversationId } = req.params
@@ -289,8 +329,24 @@ export const markAsRead = async (req, res) => {
       $set: { [`unreadCounts.${myId}`]: 0 },
     })
 
+    // Notify others in the conversation that this user has read messages
+    await ablyPublish(`conv:${conversationId}`, 'messages:read', {
+      conversationId,
+      readBy: myId,
+    })
+
     return successResponse(res, {}, 'Marked as read')
   } catch (error) {
+    console.error('Mark as read error:', error)
     return errorResponse(res, 'Failed to mark as read')
   }
+}
+
+// ─── Typing indicators (called from ably routes, not HTTP) ─────────────────
+export const publishTypingStart = async (conversationId, userId) => {
+  await ablyPublish(`conv:${conversationId}`, 'typing:start', { userId, conversationId })
+}
+
+export const publishTypingStop = async (conversationId, userId) => {
+  await ablyPublish(`conv:${conversationId}`, 'typing:stop', { userId, conversationId })
 }

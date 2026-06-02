@@ -21,6 +21,18 @@
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
   }
+
+  /* ─── iOS Safari: prevent zoom on input focus ───────────────────────────
+     iOS Safari zooms in whenever a focused input/select/textarea has a
+     computed font-size below 16px. Setting font-size: 16px here fixes
+     the zoom universally. We use transform to visually scale the text
+     back down so the UI appearance is unchanged.
+  ─────────────────────────────────────────────────────────────────────── */
+  input,
+  textarea,
+  select {
+    font-size: 16px !important;
+  }
 }
 
 @layer components {
@@ -52,7 +64,8 @@
   .input-field {
     @apply w-full px-4 py-4 bg-gray-50 rounded-xl text-gray-800 placeholder-gray-400
            border border-transparent focus:border-primary-400 focus:bg-white focus:outline-none
-           transition-all duration-200 text-sm;
+           transition-all duration-200;
+    font-size: 16px; /* iOS zoom prevention */
   }
 
   .input-wrapper {
