@@ -10,7 +10,7 @@ import BottomTabBar from './BottomTabBar'
  */
 const MainLayout = () => {
   return (
-    <div className="flex flex-col h-screen w-full overflow-hidden">
+    <div className="flex flex-col min-h-screen w-full overflow-hidden">
       <main className="flex-1 overflow-y-auto overflow-x-hidden">
         <Outlet />
       </main>

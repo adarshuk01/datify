@@ -44,7 +44,7 @@ const BottomTabBar = () => {
 
   return (
     <div
-      className="flex items-center justify-around bg-white border-t border-gray-100 pb-safe"
+      className=" fixed bottom-0 left-0 w-full flex items-center justify-around bg-white border-t border-gray-100 pb-safe"
       style={{ height: 64, flexShrink: 0 }}
     >
       {TABS.map((tab) => {
